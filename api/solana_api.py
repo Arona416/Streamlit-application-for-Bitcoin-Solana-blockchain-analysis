@@ -8,10 +8,6 @@ client = Client(SOLANA_RPC_URL)
 def fetch_solana_performance(n_samples = 60):
     "Recupere les n_samples derniers echantillons de performance du reseau Solana par defaut."
     resp = client.get_recent_performance_samples(limit=n_samples)
-    samples = resp.get("result", []) # pour avoir liste des echantillons de perf
+    samples = resp.value # pour avoir liste des echantillons de perf
     return samples
 
-
-data = fetch_solana_performance()
-
-print(data)
