@@ -1,0 +1,5 @@
+streamlit
+requests
+solona
+plotly
+python-dotenv

@@ -1,8 +1,7 @@
-from api.solana_api import fetch_solana_performance
-import json
+from api.solana_api import fetch_solana_performance, get_current_tps
 
-#recupoerer les objets
+samples = fetch_solana_performance(n_samples=5) # recuperer 5 derniers echantillons
+print("Ehantillons de performance Solona:", samples)
 
-samples = fetch_solana_performance()
-data = [json.loads(sample.to_json()) for sample in samples]
-print(json.dumps(data, indent=2))
+current_tps = get_current_tps()
+print(f"TPS actuel estime: {current_tps:.2f} tx/s")
