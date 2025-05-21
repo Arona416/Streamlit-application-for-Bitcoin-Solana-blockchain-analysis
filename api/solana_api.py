@@ -1,58 +1,39 @@
-import os
 import requests
-from solana.rpc.api import Client
-from dotenv import load_dotenv
+import streamlit as st
 
-#chargement des variables d'environnement 
-load_dotenv()
+RPC_URL = "https://api.mainnet-beta.solana.com"
 
-# Url RPC public du reseau Solana (Mainnet beta)
-SOLONA_RPC_URL = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+@st.cache_data(ttl=60)
+def get_solana_block_height():
+    """Récupère le dernier numéro de bloc (block height) du réseau Solana via un appel RPC."""
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "getBlockHeight"}
+    try:
+        res = requests.post(RPC_URL, json=payload)
+        res.raise_for_status()
+    except Exception as e:
+        print("Error fetching Solana block height:", e)
+        return None
+    data = res.json()
+    return data.get("result")
 
-# creation  d'un client RPC Solana 
-client = Client(SOLONA_RPC_URL)
-
-def fetch_solana_performance(n_samples=60):
-    """ Recuperation des n_samples derniers echantillons de performance du reseau Solona.
-    Par defaut , environ 60 echantillons 
+@st.cache_data(ttl=60)
+def get_solana_performance(samples=60):
     """
-    
-    resp = client.get_recent_performance_samples(limit=n_samples)
-
-    samples = resp.value # liste d'objet rpcperfornamance
-    # Convertir en une liste de dict pour faciliter l'exploitatiom 
-
-    perf_list = [
-        {
-            "slot": sample.slot, 
-            "num_transactions": sample.num_transactions, 
-            "num_slots": sample.num_slots, 
-            "sample_period_secs": sample.sample_period_secs,
-            "num_non_vote_tx": getattr(sample, "num_non_vote_transactions", None)
-
-        }
-        for sample in samples 
-    ]
-    return perf_list
-def get_current_tps():
+    Récupère les échantillons de performance récents de Solana (transactions par intervalle de 60s).
+    Par défaut, récupère les `samples` derniers échantillons (ex: 60 pour ~1h).
     """
-    Calcule le TPS (transaction par seconde) moyen recent sur solona.
-    """
-    resp = client.get_recent_performance_samples(limit =1)
-    latest_sample = resp.value[0] # le plus recent exhantillonde performance
-    # Calcul du TPS moyen sur la fenêtre de l'échantillon (normalement sample_period_secs = 60)
-    tps = latest_sample.num_transactions  / latest_sample.sample_period_secs
-    return tps
-
-
-COINGECKO_PRICE_SOL_URL = os.getenv("COINGECKO_API_URL", "https://api.coingecko.com/api/v3")
-COINGECKO_PRICE_SOL_URL += "/simple/price?ids=solana&vs_currencies=usd"
-
-def fetch_solona_price_usd():
-    """Recuperation du prix actuel de solana en USD VIA CoinGecko"""
-    res = requests.get(COINGECKO_PRICE_SOL_URL)
-    if res.status_code != 200:
-        raise Exception(f"Erreur API CoinGecko: {res.status_code}")
-    price_data = res.json()
-    sol_price = price_data.get("solana, {}").get("usd")
-    return sol_price
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getRecentPerformanceSamples",
+        "params": [samples]
+    }
+    try:
+        res = requests.post(RPC_URL, json=payload)
+        res.raise_for_status()
+    except Exception as e:
+        print("Error fetching Solana performance:", e)
+        return None
+    data = res.json()
+    # Renvoie la liste des échantillons (dictionnaires avec numTransactions, samplePeriodSecs, etc.)
+    return data.get("result", [])

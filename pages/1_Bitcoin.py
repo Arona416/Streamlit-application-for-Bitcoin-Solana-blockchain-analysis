@@ -1,32 +1,41 @@
 import streamlit as st
-from utils.language import get_text
-from api.bitcoin_api import fetch_bitcoin_stats, fetch_bitcoin_price_usd
+from utils.language import TRANSLATIONS
+from api import blockchair_api, coingecko_api
 
-st.title("Bitcoin") #title page 
-st.write(get_text("welcome_text"))
+# Configuration de la langue et de la page
+if 'lang' not in st.session_state:
+    st.session_state.lang = 'FR'
+lang = st.session_state.lang
+st.set_page_config(page_title=TRANSLATIONS[lang]['page_title_bitcoin'], page_icon="🔗")
 
-# call the API  to get data 
-try:
-    stats = fetch_bitcoin_stats()
-    btc_price = fetch_bitcoin_price_usd()
-except Exception as e:
-    st.error(f"Erreur lors de la recuperation des donnees Bitcoin: {e}")   
-    st.stop() 
+# Sélecteur de langue dans la barre latérale
+lang_options = {"Français": "FR", "English": "EN", "Русский": "RU"}
+choice = st.sidebar.selectbox(TRANSLATIONS[lang]['language_label'], 
+                              options=list(lang_options.keys()), 
+                              index=list(lang_options.values()).index(lang))
+st.session_state.lang = lang_options[choice]
+lang = st.session_state.lang  # Mise à jour de la langue après sélection
 
-# Extraction des metriques importantes depuis stats 
-block_count = stats.get("blocks")
-mempool_tx = stats.get("mempool_transaction") 
-mempool_tps = stats.get("mempool_tps")   
+# Titre de la page Bitcoin
+st.title(TRANSLATIONS[lang]['bitcoin_title'])
 
-# Explication  des metriques (multilingue)
-st.caption(f"- {get_text('block_count')}: Nombre total de blocs mines (blockchain Bitcoin).")
-st.caption(f"- {get_text("mempool_tx")}: Nombre de transaction en attente dans le mempool(non confirmees).")
-st.caption(f"- {get_text('btc_price')}: Prix actuel du Bitcoin en dollatrs USD")
+# Appel des API pour obtenir les données Bitcoin actuelles
+btc_stats = blockchair_api.get_btc_stats()        # Statistiques blockchain Bitcoin (Blockchair)
+prices = coingecko_api.get_crypto_prices(['bitcoin'])  # Prix Bitcoin en USD et variation 24h (CoinGecko)
 
-# Graphique interactif avec Plotly 
-import plotly.graph_objects as go 
-# Supposons qu'on trace l'evolution du nombre de transaction en mempool sur 10 intervalle de tenps fictif 
-mempool_values = [mempool_tx] * 10  # juste un demo 
-fig = go.Figure(go.Scatter(x = list(range(10)), y = mempool_values, mode= 'lines+markers'))
-fig.update_layout(title="Mempool Transaction Over Time (demo)", xaxis_title="Time (arbitrary units)", yaxis_title="Tx in mempool")
+# Vérification que les données ont bien été récupérées
+if btc_stats and prices:
+    btc_price = prices['bitcoin']['usd']
+    btc_change = prices['bitcoin']['usd_24h_change']
+    # Affichage des métriques principales de Bitcoin (prix, dernier bloc, transactions mempool)
+    st.metric(TRANSLATIONS[lang]['btc_price_label'], f"${btc_price:,.2f}", f"{btc_change:+.2f}%")
+    st.metric(TRANSLATIONS[lang]['btc_block_label'], btc_stats['blocks'])
+    st.metric(TRANSLATIONS[lang]['btc_mempool_label'], btc_stats['mempool_transactions'])
+
+# Récupération des données historiques de la mempool Bitcoin pour le graphique (7 derniers jours)
+mempool_data = blockchair_api.get_btc_mempool_data(days=7)
+
+# Génération du graphique Plotly de l'évolution du nombre de transactions en mempool
+from utils import visuals
+fig = visuals.make_mempool_chart(mempool_data, title=TRANSLATIONS[lang]['mempool_chart_title'])
 st.plotly_chart(fig, use_container_width=True)
